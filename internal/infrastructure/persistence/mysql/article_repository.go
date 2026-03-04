@@ -220,22 +220,12 @@ func (r *ArticleRepository) FindPublishedPaginated(
 		return nil, 0, fmt.Errorf("failed to count published articles: %w", err)
 	}
 
-	scoreFormula := `
-		(a.word_count * 0.1) + 
-		(SELECT COUNT(*) FROM articles WHERE author_id = a.author_id AND status = 'PUBLISHED') * 5 +
-		CASE
-			WHEN TIMESTAMPDIFF(HOUR, a.published_at, NOW()) < 24 THEN 50
-			WHEN TIMESTAMPDIFF(HOUR, a.published_at, NOW()) < 72 THEN 20
-			ELSE 0
-		END
-	`
-
-	orderClause := "a.published_at DESC"
-	if orderBy.String() == "score" {
-		orderClause = "score DESC, a.published_at DESC"
-	}
-
-	query := fmt.Sprintf(`
+	// El score NO se calcula en SQL. Se retorna author_published_count para que
+	// el Domain Service calcule el score dinámicamente en la capa de aplicación.
+	// La paginación SQL se usa para orden por fecha; el orden por score se delega
+	// a FindAllPublished + ScoreService en el handler.
+	_ = orderBy // el ordenamiento por score ocurre en memoria en la capa de aplicación
+	query := `
 		SELECT 
 			a.id,
 			a.author_id,
@@ -244,13 +234,13 @@ func (r *ArticleRepository) FindPublishedPaginated(
 			a.body,
 			a.word_count,
 			a.published_at,
-			(%s) as score
+			(SELECT COUNT(*) FROM articles WHERE author_id = a.author_id AND status = 'PUBLICADO') as author_published_count
 		FROM articles a
 		INNER JOIN authors au ON a.author_id = au.id
 		WHERE a.status = 'PUBLICADO'
-		ORDER BY %s
+		ORDER BY a.published_at DESC
 		LIMIT ? OFFSET ?
-	`, scoreFormula, orderClause)
+	`
 
 	offset := (page - 1) * perPage
 
@@ -276,50 +266,45 @@ func (r *ArticleRepository) FindPublishedPaginated(
 	return articles, total, nil
 }
 
-func (r *ArticleRepository) GetTopAuthorsByScore(ctx context.Context, limit int) ([]*vo.TopAuthor, error) {
-	exec := getExecutor(ctx, r.db)
-	scoreFormula := `
-		(a.word_count * 0.1) + 
-		(SELECT COUNT(*) FROM articles WHERE author_id = a.author_id AND status = 'PUBLISHED') * 5 +
-		CASE
-			WHEN TIMESTAMPDIFF(HOUR, a.published_at, NOW()) < 24 THEN 50
-			WHEN TIMESTAMPDIFF(HOUR, a.published_at, NOW()) < 72 THEN 20
-			ELSE 0
-		END
-	`
-
-	query := fmt.Sprintf(`
+// FindAllPublished retorna todos los artículos publicados junto con la cantidad de
+// publicaciones del autor. No aplica paginación ni calcula el score en SQL;
+// el Domain Service calcula los scores y el orden en memoria.
+func (r *ArticleRepository) FindAllPublished(ctx context.Context) ([]*vo.PublishedArticleWithScore, error) {
+	query := `
 		SELECT 
-			au.id,
+			a.id,
+			a.author_id,
 			au.name,
-			SUM(%s) as total_score,
-			COUNT(*) as published_count
+			a.title,
+			a.body,
+			a.word_count,
+			a.published_at,
+			(SELECT COUNT(*) FROM articles WHERE author_id = a.author_id AND status = 'PUBLICADO') as author_published_count
 		FROM articles a
 		INNER JOIN authors au ON a.author_id = au.id
 		WHERE a.status = 'PUBLICADO'
-		GROUP BY au.id, au.name
-		ORDER BY total_score DESC, au.id ASC
-		LIMIT ?
-	`, scoreFormula)
+		ORDER BY a.published_at DESC
+	`
 
-	rows, err := exec.QueryContext(ctx, query, limit)
+	exec := getExecutor(ctx, r.db)
+	rows, err := exec.QueryContext(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get top authors: %w", err)
+		return nil, fmt.Errorf("failed to find all published articles: %w", err)
 	}
 	defer rows.Close()
 
-	var topAuthors []*vo.TopAuthor
+	var articles []*vo.PublishedArticleWithScore
 	for rows.Next() {
-		topAuthor, err := mappers.ScanTopAuthor(rows)
+		article, err := mappers.ScanPublishedArticleWithScore(rows)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan top author: %w", err)
+			return nil, fmt.Errorf("failed to scan published article: %w", err)
 		}
-		topAuthors = append(topAuthors, topAuthor)
+		articles = append(articles, article)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating top authors: %w", err)
+		return nil, fmt.Errorf("error iterating published articles: %w", err)
 	}
 
-	return topAuthors, nil
+	return articles, nil
 }

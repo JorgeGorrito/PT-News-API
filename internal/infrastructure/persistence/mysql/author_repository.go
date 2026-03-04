@@ -81,33 +81,24 @@ func (r *AuthorRepository) FindByEmail(ctx context.Context, email string) (*enti
 	return author, nil
 }
 
+// GetSummary retorna las estadísticas básicas de publicación del autor.
+// El total_score NO se calcula aquí; es responsabilidad de la capa de aplicación
+// usando el Domain Service de puntuación sobre los artículos publicados.
 func (r *AuthorRepository) GetSummary(ctx context.Context, authorID int64) (*vo.AuthorSummary, error) {
-	scoreFormula := `
-		(word_count * 0.1) + 
-		(SELECT COUNT(*) FROM articles WHERE author_id = ? AND status = 'PUBLISHED') * 5 +
-		CASE
-			WHEN TIMESTAMPDIFF(HOUR, published_at, NOW()) < 24 THEN 50
-			WHEN TIMESTAMPDIFF(HOUR, published_at, NOW()) < 72 THEN 20
-			ELSE 0
-		END
-	`
-
-	query := fmt.Sprintf(`
+	query := `
 		SELECT 
 			COUNT(*) as total_articles,
-			COUNT(CASE WHEN status = 'PUBLISHED' THEN 1 END) as total_published,
-			COALESCE(SUM(CASE WHEN status = 'PUBLISHED' THEN %s ELSE 0 END), 0) as total_score,
+			COUNT(CASE WHEN status = 'PUBLICADO' THEN 1 END) as total_published,
 			MAX(published_at) as last_publication_at
 		FROM articles
 		WHERE author_id = ?
-	`, scoreFormula)
+	`
 
 	var totalArticles, totalPublished int
-	var totalScore float64
 	var lastPublicationAt sql.NullTime
 
 	exec := getExecutor(ctx, r.db)
-	err := exec.QueryRowContext(ctx, query, authorID, authorID).Scan(&totalArticles, &totalPublished, &totalScore, &lastPublicationAt)
+	err := exec.QueryRowContext(ctx, query, authorID).Scan(&totalArticles, &totalPublished, &lastPublicationAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get author summary: %w", err)
 	}
@@ -117,7 +108,7 @@ func (r *AuthorRepository) GetSummary(ctx context.Context, authorID int64) (*vo.
 		lastPubPtr = &lastPublicationAt.Time
 	}
 
-	return vo.NewAuthorSummary(authorID, totalArticles, totalPublished, totalScore, lastPubPtr), nil
+	return vo.NewAuthorSummary(authorID, totalArticles, totalPublished, lastPubPtr), nil
 }
 
 func (r *AuthorRepository) FindAll(ctx context.Context) ([]*entities.Author, error) {

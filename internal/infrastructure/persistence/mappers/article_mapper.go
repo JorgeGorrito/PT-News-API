@@ -67,9 +67,9 @@ func ScanPublishedArticleWithScore(rows *sql.Rows) (*vo.PublishedArticleWithScor
 	var authorName, title, body string
 	var wordCount uint
 	var publishedAt time.Time
-	var score float64
+	var authorPublishedCount int
 
-	if err := rows.Scan(&articleID, &authorID, &authorName, &title, &body, &wordCount, &publishedAt, &score); err != nil {
+	if err := rows.Scan(&articleID, &authorID, &authorName, &title, &body, &wordCount, &publishedAt, &authorPublishedCount); err != nil {
 		return nil, err
 	}
 
@@ -81,19 +81,6 @@ func ScanPublishedArticleWithScore(rows *sql.Rows) (*vo.PublishedArticleWithScor
 		body,
 		wordCount,
 		publishedAt,
-		score,
+		authorPublishedCount,
 	), nil
-}
-
-func ScanTopAuthor(rows *sql.Rows) (*vo.TopAuthor, error) {
-	var authorID int64
-	var authorName string
-	var totalScore float64
-	var publishedCount int
-
-	if err := rows.Scan(&authorID, &authorName, &totalScore, &publishedCount); err != nil {
-		return nil, err
-	}
-
-	return vo.NewTopAuthor(authorID, authorName, totalScore, publishedCount), nil
 }
