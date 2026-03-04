@@ -34,5 +34,6 @@ func (h *Handler) Handle(ctx context.Context, query Query) (*Response, error) {
 		Biography:         author.Biography(),
 		PublishedArticles: summary.TotalPublished(),
 		DraftArticles:     draftArticles,
+		TotalScore:        summary.TotalScore(),
 	}, nil
 }

@@ -7,4 +7,5 @@ type Response struct {
 	Biography         string
 	PublishedArticles int
 	DraftArticles     int
+	TotalScore        float64
 }

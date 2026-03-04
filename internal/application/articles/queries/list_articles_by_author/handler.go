@@ -8,13 +8,23 @@ import (
 
 type Handler struct {
 	articleRepo interfaces.ArticleRepository
+	authorRepo  interfaces.AuthorRepository
 }
 
-func NewHandler(articleRepo interfaces.ArticleRepository) *Handler {
-	return &Handler{articleRepo: articleRepo}
+func NewHandler(articleRepo interfaces.ArticleRepository, authorRepo interfaces.AuthorRepository) *Handler {
+	return &Handler{
+		articleRepo: articleRepo,
+		authorRepo:  authorRepo,
+	}
 }
 
 func (h *Handler) Handle(ctx context.Context, query Query) (*Response, error) {
+	// Verify that author exists
+	_, err := h.authorRepo.FindByID(ctx, query.AuthorID)
+	if err != nil {
+		return nil, err
+	}
+
 	articles, total, err := h.articleRepo.FindByAuthorIDPaginated(ctx, query.AuthorID, query.Status, query.Page, query.PerPage)
 	if err != nil {
 		return nil, err

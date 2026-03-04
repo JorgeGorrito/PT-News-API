@@ -9,10 +9,14 @@ import (
 
 type Handler struct {
 	articleRepo interfaces.ArticleRepository
+	authorRepo  interfaces.AuthorRepository
 }
 
-func NewHandler(articleRepo interfaces.ArticleRepository) *Handler {
-	return &Handler{articleRepo: articleRepo}
+func NewHandler(articleRepo interfaces.ArticleRepository, authorRepo interfaces.AuthorRepository) *Handler {
+	return &Handler{
+		articleRepo: articleRepo,
+		authorRepo:  authorRepo,
+	}
 }
 
 func (h *Handler) Handle(ctx context.Context, query Query) (*Response, error) {
@@ -21,13 +25,20 @@ func (h *Handler) Handle(ctx context.Context, query Query) (*Response, error) {
 		return nil, err
 	}
 
+	author, err := h.authorRepo.FindByID(ctx, article.AuthorID())
+	if err != nil {
+		return nil, err
+	}
+
 	response := &Response{
 		ID:          article.ID(),
 		AuthorID:    article.AuthorID(),
+		AuthorName:  author.Name(),
 		Title:       article.Title(),
 		Body:        article.Body(),
 		Status:      article.Status().String(),
 		WordCount:   article.WordCount(),
+		CreatedAt:   article.CreatedAt(),
 		PublishedAt: article.PublishedAt(),
 	}
 
