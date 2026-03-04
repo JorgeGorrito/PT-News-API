@@ -14,6 +14,7 @@ import (
 	createArticle "github.com/JorgeGorrito/PT-News-API/internal/application/articles/commands/create_article"
 	publishArticle "github.com/JorgeGorrito/PT-News-API/internal/application/articles/commands/publish_article"
 	createAuthor "github.com/JorgeGorrito/PT-News-API/internal/application/authors/commands/create_author"
+	domainservices "github.com/JorgeGorrito/PT-News-API/internal/domain/services"
 	vo "github.com/JorgeGorrito/PT-News-API/internal/domain/value-objects"
 	"github.com/JorgeGorrito/PT-News-API/internal/infrastructure/config"
 	"github.com/JorgeGorrito/PT-News-API/internal/infrastructure/persistence/mysql"
@@ -384,8 +385,13 @@ func TestIntegration_ArticleScore_Calculation(t *testing.T) {
 		t.Fatal("Published article not found in results")
 	}
 
-	// Verificar que el score se calculó
-	score := foundArticle.Score()
+	// Calcular el score dinámicamente usando el Domain Service (nunca se almacena en BD).
+	scoreService := domainservices.NewScoreService()
+	score := scoreService.CalculateArticleScore(
+		foundArticle.WordCount(),
+		foundArticle.AuthorPublishedCount(),
+		foundArticle.PublishedAt(),
+	)
 	if score <= 0 {
 		t.Errorf("Expected positive score, got %f", score)
 	}

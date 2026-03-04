@@ -8,16 +8,15 @@ import (
 	constants "github.com/JorgeGorrito/PT-News-API/internal/domain/constants"
 )
 
-// CalculateArticleScore calcula el score de un artículo según la fórmula especificada
-// Esta función replica la lógica de cálculo que se implementa en SQL
+// CalculateArticleScore es una función helper de test que replica la fórmula
+// del Domain Service (ScoreService.CalculateArticleScore) para poder escribir
+// pruebas unitarias autocontenidas en este paquete sin crear una dependencia
+// circular hacia el paquete services (que a su vez importa value-objects).
 func CalculateArticleScore(wordCount uint, authorPublishedCount int, publishedAt time.Time) float64 {
-	// Base score: (word_count * 0.1) + (author_published_articles * 5)
 	baseScore := (float64(wordCount) * constants.ScorePerWord) + (float64(authorPublishedCount) * constants.ScorePerAuthorArticle)
 
-	// Calcular bonus por recencia
 	hoursSincePublished := time.Since(publishedAt).Hours()
 	var recencyBonus float64
-
 	if hoursSincePublished < constants.Hours24 {
 		recencyBonus = constants.BonusRecent24Hours
 	} else if hoursSincePublished < constants.Hours72 {
