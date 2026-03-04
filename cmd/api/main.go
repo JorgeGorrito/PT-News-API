@@ -50,10 +50,8 @@ import (
 // @schemes http https
 
 func main() {
-	// Initialize database configuration
 	dbConfig := config.DefaultDatabaseConfig()
 
-	// Override with environment variables if present
 	if host := os.Getenv("DB_HOST"); host != "" {
 		dbConfig.Host = host
 	}
@@ -70,7 +68,6 @@ func main() {
 		dbConfig.Database = database
 	}
 
-	// Connect to database
 	db, err := mysql.NewConnection(dbConfig)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
@@ -79,32 +76,26 @@ func main() {
 
 	log.Println("Connected to database successfully")
 
-	// Run database migrations
 	migrationRunner := migrations.NewRunner(db.DB)
 	if err := migrationRunner.Run(context.Background()); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	// Initialize repositories
 	authorRepo := mysql.NewAuthorRepository(db)
 	articleRepo := mysql.NewArticleRepository(db)
 
-	// Initialize transaction manager
 	txManager := mysql.NewTxManager(db)
 
-	// Initialize command handlers
 	createAuthorHandler := createAuthor.NewHandler(authorRepo)
 	createArticleHandler := createArticle.NewHandler(articleRepo, authorRepo, txManager)
 	publishArticleHandler := publishArticle.NewHandler(articleRepo, txManager)
 
-	// Initialize query handlers
 	getAuthorSummaryHandler := getAuthorSummary.NewHandler(authorRepo)
 	getTopAuthorsHandler := getTopAuthors.NewHandler(articleRepo)
 	getArticleByIDHandler := getArticleByID.NewHandler(articleRepo, authorRepo)
 	listPublishedArticlesHandler := listPublishedArticles.NewHandler(articleRepo)
 	listArticlesByAuthorHandler := listArticlesByAuthor.NewHandler(articleRepo, authorRepo)
 
-	// Initialize HTTP handlers
 	authorsHandler := handlers.NewAuthorsHandler(
 		createAuthorHandler,
 		getAuthorSummaryHandler,
@@ -119,16 +110,13 @@ func main() {
 		listArticlesByAuthorHandler,
 	)
 
-	// Setup router
 	router := routes.SetupRouter(authorsHandler, articlesHandler)
 
-	// Get port from environment or use default
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	// Configure HTTP server
 	server := &http.Server{
 		Addr:           ":" + port,
 		Handler:        router,
@@ -137,7 +125,6 @@ func main() {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	// Start server in a goroutine
 	go func() {
 		log.Printf("Starting server on port %s", port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -145,14 +132,12 @@ func main() {
 		}
 	}()
 
-	// Wait for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	log.Println("Shutting down server...")
 
-	// Graceful shutdown with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
