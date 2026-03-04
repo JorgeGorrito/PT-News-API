@@ -4,18 +4,24 @@ import (
 	"context"
 
 	"github.com/JorgeGorrito/PT-News-API/internal/domain/interfaces"
-	valueobjects "github.com/JorgeGorrito/PT-News-API/internal/domain/value-objects"
+	services "github.com/JorgeGorrito/PT-News-API/internal/domain/services"
 )
 
 type Handler struct {
-	articleRepo interfaces.ArticleRepository
-	authorRepo  interfaces.AuthorRepository
+	articleRepo  interfaces.ArticleRepository
+	authorRepo   interfaces.AuthorRepository
+	scoreService services.IScoreService
 }
 
-func NewHandler(articleRepo interfaces.ArticleRepository, authorRepo interfaces.AuthorRepository) *Handler {
+func NewHandler(
+	articleRepo interfaces.ArticleRepository,
+	authorRepo interfaces.AuthorRepository,
+	scoreService services.IScoreService,
+) *Handler {
 	return &Handler{
-		articleRepo: articleRepo,
-		authorRepo:  authorRepo,
+		articleRepo:  articleRepo,
+		authorRepo:   authorRepo,
+		scoreService: scoreService,
 	}
 }
 
@@ -43,18 +49,13 @@ func (h *Handler) Handle(ctx context.Context, query Query) (*Response, error) {
 	}
 
 	if query.IncludeScore && article.IsPublished() {
-		items, _, err := h.articleRepo.FindPublishedPaginated(ctx, 1, 1000, valueobjects.OrderByScore)
+		// Calcular score dinámicamente desde el dominio sin consultar la BD por score.
+		publishedCount, err := h.articleRepo.CountPublishedByAuthorID(ctx, article.AuthorID())
 		if err != nil {
 			return nil, err
 		}
-
-		for _, item := range items {
-			if item.ArticleID() == article.ID() {
-				score := item.Score()
-				response.Score = &score
-				break
-			}
-		}
+		score := article.CalculateScore(h.scoreService, publishedCount)
+		response.Score = &score
 	}
 
 	return response, nil

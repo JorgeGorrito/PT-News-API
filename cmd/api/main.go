@@ -18,6 +18,7 @@ import (
 	createAuthor "github.com/JorgeGorrito/PT-News-API/internal/application/authors/commands/create_author"
 	getAuthorSummary "github.com/JorgeGorrito/PT-News-API/internal/application/authors/queries/get_author_summary"
 	getTopAuthors "github.com/JorgeGorrito/PT-News-API/internal/application/authors/queries/get_top_authors"
+	domainservices "github.com/JorgeGorrito/PT-News-API/internal/domain/services"
 	"github.com/JorgeGorrito/PT-News-API/internal/infrastructure/config"
 	"github.com/JorgeGorrito/PT-News-API/internal/infrastructure/persistence/mysql"
 	"github.com/JorgeGorrito/PT-News-API/internal/infrastructure/persistence/mysql/migrations"
@@ -84,16 +85,18 @@ func main() {
 	authorRepo := mysql.NewAuthorRepository(db)
 	articleRepo := mysql.NewArticleRepository(db)
 
+	scoreService := domainservices.NewScoreService()
+
 	txManager := mysql.NewTxManager(db)
 
 	createAuthorHandler := createAuthor.NewHandler(authorRepo)
 	createArticleHandler := createArticle.NewHandler(articleRepo, authorRepo, txManager)
 	publishArticleHandler := publishArticle.NewHandler(articleRepo, txManager)
 
-	getAuthorSummaryHandler := getAuthorSummary.NewHandler(authorRepo)
-	getTopAuthorsHandler := getTopAuthors.NewHandler(articleRepo)
-	getArticleByIDHandler := getArticleByID.NewHandler(articleRepo, authorRepo)
-	listPublishedArticlesHandler := listPublishedArticles.NewHandler(articleRepo)
+	getAuthorSummaryHandler := getAuthorSummary.NewHandler(authorRepo, articleRepo, scoreService)
+	getTopAuthorsHandler := getTopAuthors.NewHandler(articleRepo, scoreService)
+	getArticleByIDHandler := getArticleByID.NewHandler(articleRepo, authorRepo, scoreService)
+	listPublishedArticlesHandler := listPublishedArticles.NewHandler(articleRepo, scoreService)
 	listArticlesByAuthorHandler := listArticlesByAuthor.NewHandler(articleRepo, authorRepo)
 
 	authorsHandler := handlers.NewAuthorsHandler(
