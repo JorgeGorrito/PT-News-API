@@ -17,4 +17,6 @@ const (
 	MinWordsToPublishError       = 202
 	PercentageOfRepetitionError  = 203
 	ArticleAlreadyPublishedError = 204
+	InvalidArticleStatusError    = 205
+	InvalidArticleOrderByError   = 206
 )
