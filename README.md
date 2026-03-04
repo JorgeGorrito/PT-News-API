@@ -204,7 +204,10 @@ go tool cover -html=coverage.out
 **Publicar artículo end-to-end** ([`internal/infrastructure/persistence/mysql/integration_test.go`](internal/infrastructure/persistence/mysql/integration_test.go))
 - ✅ Crear autor → Crear artículo → Publicar → Verificar en BD
 - ✅ Validar cambio de estado BORRADOR → PUBLICADO
-- ✅ Validar asignación de `published_at`.
+- ✅ Validar asignación de `published_at`
+- ✅ Calcular score dinámicamente con `ScoreService` y verificar rango esperado
+
+> **Nota**: las pruebas de integración requieren una base de datos MySQL activa. Si no hay conexión disponible, **se saltan automáticamente** (`t.Skip`) sin fallar la suite. No bloquean los tests unitarios.
 
 **Con Docker:**
 
@@ -309,7 +312,7 @@ Donde recency_bonus:
 - 0 en otros casos
 ```
 
-El score se calcula **dinámicamente en la consulta SQL**, nunca se almacena.
+El score se calcula **dinámicamente en Go mediante el `ScoreService` del dominio**, nunca se almacena en la base de datos. La BD solo provee los datos crudos (`word_count`, `published_at`, conteo de publicaciones del autor); el `ScoreService` aplica la fórmula en memoria.
 
 ## 📝 Ejemplos de Uso
 
@@ -348,7 +351,7 @@ curl -X PUT http://localhost:8080/api/v1/articles/1/publish
 ```bash
 curl "http://localhost:8080/api/v1/articles?page=1&page_size=10&order_by=score"
 ```
-BORRADOR', 'PUBLICADO
+
 ### Obtener top autores
 
 ```bash
@@ -406,8 +409,7 @@ La aplicación verifica y ejecuta migraciones automáticamente al iniciar:
 - `idx_published_at` en `articles.published_at`
 - `idx_status_published` en `articles(status, published_at)`
 
-## 
-- **Lenguaje**: Go 1.25.1
+## 🔧 Stack Tecnológico: Go 1.25.1
 - **Framework Web**: Gin
 - **Base de Datos**: MySQL 8.0
 - **Documentación**: Swagger/OpenAPI 3.0
@@ -429,7 +431,7 @@ require (
 ## 🎯 Decisiones Arquitectónicas
 
 1. **CQRS**: Separación clara entre Commands (escritura) y Queries (lectura)
-2. **Score dinámico**: Never stored, calculated in SQL for accuracy
+2. **Score dinámico**: Nunca almacenado en BD, calculado en memoria por el `ScoreService` del dominio. La capa de infraestructura expone `author_published_count`; el dominio aplica la fórmula
 3. **Transaction Manager**: Context-based para transacciones transparentes
 4. **Dependency Inversion**: Application define interfaces, Infrastructure implementa
 5. **Error Middleware**: Mapeo centralizado de errores de dominio a HTTP status
