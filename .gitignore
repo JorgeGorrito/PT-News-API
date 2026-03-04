@@ -41,3 +41,14 @@ build/
 # Temporary files
 tmp/
 temp/
+
+# Docker volumes (local data)
+mysql_data/
+
+# Generated Swagger documentation (auto-generated on build)
+docs/docs.go
+docs/swagger.json
+docs/swagger.yaml
+
+# OS specific
+Thumbs.db
