@@ -1,8 +1,9 @@
 package valueobjects
 
 import (
-	"errors"
 	"strings"
+
+	domerrs "github.com/JorgeGorrito/PT-News-API/internal/domain/errors"
 )
 
 type ArticleStatus string
@@ -32,7 +33,7 @@ func (s ArticleStatus) Equals(other ArticleStatus) bool {
 func NewArticleStatus(status string) (ArticleStatus, error) {
 	s := ArticleStatus(strings.ToUpper(strings.TrimSpace(status)))
 	if !s.IsValid() {
-		return "", errors.New("estado de artículo inválido: " + status)
+		return "", domerrs.NewDomainError("estado de artículo inválido: "+status, domerrs.InvalidArticleStatusError)
 	}
 	return s, nil
 }
