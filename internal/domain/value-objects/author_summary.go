@@ -6,14 +6,16 @@ type AuthorSummary struct {
 	authorID          int64
 	totalArticles     int
 	totalPublished    int
+	totalScore        float64
 	lastPublicationAt *time.Time
 }
 
-func NewAuthorSummary(authorID int64, totalArticles, totalPublished int, lastPublicationAt *time.Time) *AuthorSummary {
+func NewAuthorSummary(authorID int64, totalArticles, totalPublished int, totalScore float64, lastPublicationAt *time.Time) *AuthorSummary {
 	return &AuthorSummary{
 		authorID:          authorID,
 		totalArticles:     totalArticles,
 		totalPublished:    totalPublished,
+		totalScore:        totalScore,
 		lastPublicationAt: lastPublicationAt,
 	}
 }
@@ -28,6 +30,10 @@ func (s *AuthorSummary) TotalArticles() int {
 
 func (s *AuthorSummary) TotalPublished() int {
 	return s.totalPublished
+}
+
+func (s *AuthorSummary) TotalScore() float64 {
+	return s.totalScore
 }
 
 func (s *AuthorSummary) LastPublicationAt() *time.Time {

@@ -3,7 +3,8 @@ package domerrs
 type ErrorType uint
 
 const (
-	GeneralError ErrorType = 0
+	GeneralError  ErrorType = 0
+	NotFoundError ErrorType = 1
 
 	AuthorError                 = 100
 	EmptyAuthorNameError        = 101
