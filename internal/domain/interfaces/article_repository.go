@@ -12,9 +12,11 @@ type ArticleRepository interface {
 	FindByID(ctx context.Context, id int64) (*entities.Article, error)
 	FindByAuthorIDPaginated(ctx context.Context, authorID int64, status *vo.ArticleStatus, page, perPage int) (articles []*entities.Article, total int, err error)
 	FindPublishedPaginated(ctx context.Context, page, perPage int, orderBy vo.ArticleOrderBy) (articles []*vo.PublishedArticleWithScore, total int, err error)
+	// FindAllPublished retorna todos los artículos publicados con el conteo de
+	// publicaciones del autor. El score se calcula dinámicamente en el dominio.
+	FindAllPublished(ctx context.Context) ([]*vo.PublishedArticleWithScore, error)
 	FindPublishedByAuthorID(ctx context.Context, authorID int64) ([]*entities.Article, error)
 	CountByAuthorID(ctx context.Context, authorID int64) (int, error)
 	CountPublishedByAuthorID(ctx context.Context, authorID int64) (int, error)
 	Update(ctx context.Context, article *entities.Article) error
-	GetTopAuthorsByScore(ctx context.Context, limit int) ([]*vo.TopAuthor, error)
 }

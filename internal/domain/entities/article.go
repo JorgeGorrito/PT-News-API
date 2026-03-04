@@ -7,6 +7,7 @@ import (
 
 	constants "github.com/JorgeGorrito/PT-News-API/internal/domain/constants"
 	domerrs "github.com/JorgeGorrito/PT-News-API/internal/domain/errors"
+	"github.com/JorgeGorrito/PT-News-API/internal/domain/services"
 	vo "github.com/JorgeGorrito/PT-News-API/internal/domain/value-objects"
 )
 
@@ -143,4 +144,14 @@ func (a *Article) IsPublished() bool {
 
 func (a *Article) IsDraft() bool {
 	return a.status == vo.Draft
+}
+
+// CalculateScore calcula el score de relevancia del artículo delegando la lógica
+// al servicio de dominio. Recibe como parámetro externo el número de artículos
+// publicados del autor, ya que ese dato no pertenece a esta entidad.
+func (a *Article) CalculateScore(svc services.IScoreService, authorPublishedCount int) float64 {
+	if a.publishedAt == nil {
+		return 0
+	}
+	return svc.CalculateArticleScore(a.wordCount, authorPublishedCount, *a.publishedAt)
 }
