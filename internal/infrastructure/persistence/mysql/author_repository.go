@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/JorgeGorrito/PT-News-API/internal/domain/entities"
+	domerrs "github.com/JorgeGorrito/PT-News-API/internal/domain/errors"
 	vo "github.com/JorgeGorrito/PT-News-API/internal/domain/value-objects"
 	"github.com/JorgeGorrito/PT-News-API/internal/infrastructure/persistence/mappers"
 )
@@ -51,7 +52,7 @@ func (r *AuthorRepository) FindByID(ctx context.Context, id int64) (*entities.Au
 	row := exec.QueryRowContext(ctx, query, id)
 	author, err := mappers.ScanAuthorRow(row)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("author not found with id %d", id)
+		return nil, domerrs.NewDomainError(fmt.Sprintf("autor no encontrado con id %d", id), domerrs.NotFoundError)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to find author: %w", err)
@@ -71,7 +72,7 @@ func (r *AuthorRepository) FindByEmail(ctx context.Context, email string) (*enti
 	row := exec.QueryRowContext(ctx, query, email)
 	author, err := mappers.ScanAuthorRow(row)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("author not found with email %s", email)
+		return nil, domerrs.NewDomainError(fmt.Sprintf("autor no encontrado con email %s", email), domerrs.NotFoundError)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to find author: %w", err)
@@ -81,20 +82,32 @@ func (r *AuthorRepository) FindByEmail(ctx context.Context, email string) (*enti
 }
 
 func (r *AuthorRepository) GetSummary(ctx context.Context, authorID int64) (*vo.AuthorSummary, error) {
-	query := `
+	scoreFormula := `
+		(word_count * 0.1) + 
+		(SELECT COUNT(*) FROM articles WHERE author_id = ? AND status = 'PUBLISHED') * 5 +
+		CASE
+			WHEN TIMESTAMPDIFF(HOUR, published_at, NOW()) < 24 THEN 50
+			WHEN TIMESTAMPDIFF(HOUR, published_at, NOW()) < 72 THEN 20
+			ELSE 0
+		END
+	`
+
+	query := fmt.Sprintf(`
 		SELECT 
 			COUNT(*) as total_articles,
-			SUM(CASE WHEN status = 'PUBLISHED' THEN 1 ELSE 0 END) as total_published,
+			COUNT(CASE WHEN status = 'PUBLISHED' THEN 1 END) as total_published,
+			COALESCE(SUM(CASE WHEN status = 'PUBLISHED' THEN %s ELSE 0 END), 0) as total_score,
 			MAX(published_at) as last_publication_at
 		FROM articles
 		WHERE author_id = ?
-	`
+	`, scoreFormula)
 
 	var totalArticles, totalPublished int
+	var totalScore float64
 	var lastPublicationAt sql.NullTime
 
 	exec := getExecutor(ctx, r.db)
-	err := exec.QueryRowContext(ctx, query, authorID).Scan(&totalArticles, &totalPublished, &lastPublicationAt)
+	err := exec.QueryRowContext(ctx, query, authorID, authorID).Scan(&totalArticles, &totalPublished, &totalScore, &lastPublicationAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get author summary: %w", err)
 	}
@@ -104,7 +117,7 @@ func (r *AuthorRepository) GetSummary(ctx context.Context, authorID int64) (*vo.
 		lastPubPtr = &lastPublicationAt.Time
 	}
 
-	return vo.NewAuthorSummary(authorID, totalArticles, totalPublished, lastPubPtr), nil
+	return vo.NewAuthorSummary(authorID, totalArticles, totalPublished, totalScore, lastPubPtr), nil
 }
 
 func (r *AuthorRepository) FindAll(ctx context.Context) ([]*entities.Author, error) {

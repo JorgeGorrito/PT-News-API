@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JorgeGorrito/PT-News-API/internal/domain/entities"
+	domerrs "github.com/JorgeGorrito/PT-News-API/internal/domain/errors"
 	vo "github.com/JorgeGorrito/PT-News-API/internal/domain/value-objects"
 	"github.com/JorgeGorrito/PT-News-API/internal/infrastructure/persistence/mappers"
 )
@@ -59,7 +60,7 @@ func (r *ArticleRepository) FindByID(ctx context.Context, id int64) (*entities.A
 	row := exec.QueryRowContext(ctx, query, id)
 	article, err := mappers.ScanArticleRow(row)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("article not found with id %d", id)
+		return nil, domerrs.NewDomainError(fmt.Sprintf("artículo no encontrado con id %d", id), domerrs.NotFoundError)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to find article: %w", err)
@@ -156,7 +157,7 @@ func (r *ArticleRepository) FindPublishedByAuthorID(ctx context.Context, authorI
 	query := `
 		SELECT id, author_id, title, body, status, word_count, created_at, published_at
 		FROM articles
-		WHERE author_id = ? AND status = 'PUBLISHED'
+		WHERE author_id = ? AND status = 'PUBLICADO'
 		ORDER BY published_at DESC
 	`
 
@@ -196,7 +197,7 @@ func (r *ArticleRepository) CountByAuthorID(ctx context.Context, authorID int64)
 }
 
 func (r *ArticleRepository) CountPublishedByAuthorID(ctx context.Context, authorID int64) (int, error) {
-	query := "SELECT COUNT(*) FROM articles WHERE author_id = ? AND status = 'PUBLISHED'"
+	query := "SELECT COUNT(*) FROM articles WHERE author_id = ? AND status = 'PUBLICADO'"
 
 	exec := getExecutor(ctx, r.db)
 	var count int
@@ -213,7 +214,7 @@ func (r *ArticleRepository) FindPublishedPaginated(
 	orderBy vo.ArticleOrderBy,
 ) ([]*vo.PublishedArticleWithScore, int, error) {
 	exec := getExecutor(ctx, r.db)
-	countQuery := "SELECT COUNT(*) FROM articles WHERE status = 'PUBLISHED'"
+	countQuery := "SELECT COUNT(*) FROM articles WHERE status = 'PUBLICADO'"
 	var total int
 	if err := exec.QueryRowContext(ctx, countQuery).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("failed to count published articles: %w", err)
@@ -246,7 +247,7 @@ func (r *ArticleRepository) FindPublishedPaginated(
 			(%s) as score
 		FROM articles a
 		INNER JOIN authors au ON a.author_id = au.id
-		WHERE a.status = 'PUBLISHED'
+		WHERE a.status = 'PUBLICADO'
 		ORDER BY %s
 		LIMIT ? OFFSET ?
 	`, scoreFormula, orderClause)
@@ -295,7 +296,7 @@ func (r *ArticleRepository) GetTopAuthorsByScore(ctx context.Context, limit int)
 			COUNT(*) as published_count
 		FROM articles a
 		INNER JOIN authors au ON a.author_id = au.id
-		WHERE a.status = 'PUBLISHED'
+		WHERE a.status = 'PUBLICADO'
 		GROUP BY au.id, au.name
 		ORDER BY total_score DESC, au.id ASC
 		LIMIT ?
